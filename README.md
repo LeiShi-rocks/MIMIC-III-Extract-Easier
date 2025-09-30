@@ -86,6 +86,12 @@ Highlights:
 
 Pass `--pop_size 100` for a smoke test; omit it to extract the full cohort (expect several hours on a laptop).
 
+Key Difference from [**MIMICExtractEasy**](https://github.com/SphtKr/MIMICExtractEasy):
+
+The original MIMIC-Extract query structure builds one massive SQL statement with thousands of ICU IDs and item IDs stuffed into `IN (…)` clauses and an equally large `UNION ALL` between `chartevents` and `labevents`. DuckDB—and even PostgreSQL on some machines—struggles with those queries once you ask for more than 20–30 stays at a time. The planner spends a lot of time parsing and optimizing the huge predicate lists, memory usage spikes, and the call often appears to hang.
+
+Per-ICU batching sidesteps all of that. By generating a small query for each stay (or a small chunk), the database only has to evaluate a handful of predicates at once. Each query returns quickly (tens of milliseconds), DuckDB midges along happily, and we simply concatenate the resulting DataFrames. The total runtime still stays reasonable (roughly linear in the number of stays), but we avoid the point where the optimizer bogs down or the engine runs out of resources. In short, per-ICU batching trades one “huge and brittle” query for many “small and predictable” ones, which makes the pipeline robust on commodity hardware without changing the final output.
+
 ---
 ## Step 4 – Optional analysis with PyHealth
 
